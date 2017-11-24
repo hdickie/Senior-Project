@@ -27,9 +27,10 @@ IF NOT "0" == "%ERRORLEVEL%" (
 cd src
 %R_Script% -e "rmarkdown::render('Driver.Rmd',output_file='C:/Users/Hume Dickie/Desktop/Github/Senior-Project/index.html')"
 
+cd %parent%
 git add *
 git commit -m "Automated push."
 git push
 
-::echo Finished Successfully.
-::pause
+echo Finished Successfully.
+pause
