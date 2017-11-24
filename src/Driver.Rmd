@@ -5,13 +5,20 @@ date: "November 22, 2017"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r libs, include=FALSE}
+
 ```
 
-1.import data
-2. automate model selection for VARIMA
-  default plots and kfold RMSE
-3. fit Poisson models to each webpage
+```{r getData, include=FALSE}
+#assumes this file is in the src folder
+setwd("../data/First-Uploads")
+first.dataset1 <- read.csv("dataset-1.csv")
+first.top100news <- read.csv("top100news.csv")
+```
 
-#use knitr to post this HTML output in a specific folder
+This is the page that will be auto updated when new data is added. Here is proof!
+
+```{r outputDataDimensions}
+print(dim(first.dataset1))
+print(dim(first.top100news))
+```
