@@ -1,0 +1,17 @@
+---
+title: "Driver"
+author: "Hume Dickie"
+date: "November 22, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1.import data
+2. automate model selection for VARIMA
+  default plots and kfold RMSE
+3. fit Poisson models to each webpage
+
+#use knitr to post this HTML output in a specific folder

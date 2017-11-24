@@ -1,0 +1,32 @@
+---
+title: "connectToMySQL"
+author: "Hume Dickie"
+date: "November 5, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library("RMySQL")
+library("dbConnect")
+```
+
+```{r connect}
+user <- 'root'
+pass <- ''
+host <- '10.0.0.82'
+port <- 3306
+dbname <- 'information_schema'
+con <- dbConnect(RMySQL::MySQL(),user = user,password = pass,host = host, dbname = dbname)
+```
+
+```{r connected???}
+
+##the request is stored on the server, and must be fetched later
+dbSendQuery(con, 'SELECT * FROM top100newsdb.top100news')
+
+request <- dbListResults(con)[[1]]
+
+#I think the n = -1 asks the server to send all pending requests
+fetched.data <- fetch(request,n=-1)
+
+```
