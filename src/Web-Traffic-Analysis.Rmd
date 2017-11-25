@@ -64,11 +64,11 @@ One of the largest drivers of overall web traffic is the news articles on USF's 
 
 #Models
 
-I attempted to fit VAR (Vector Auto-Regressive) models to several subsets.
+I attempted to fit VAR (Vector Auto-Regressive) models to several subsets of pages.
 
 ###Undergraduate Majors & Minors
 
-Using VARSelect() from the 'vars' package, diagnostic plots indicate there was no possibility of obtaining useful predictions from this model. We would expect to see a non-zero minimum value to indicate an ideal number of lag variables, but the relentlessly increasing trend is a sign that increasing model complexity would only make predictions worse.
+Using VARSelect() from the 'vars' package, diagnostic plots indicate little chance of obtaining useful predictions from this model. We would expect to see a minimum value to indicate an ideal number of lag variables, but the relentlessly increasing trend is a sign that increasing model complexity would only make predictions worse.
 
 This model was fit on the 10 pages with the highest mean pageviews-per-day.
 
