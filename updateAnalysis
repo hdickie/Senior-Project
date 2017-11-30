@@ -1,0 +1,37 @@
+#!/bin/bash
+HOME_DIRECTORY=$(pwd)
+cd ..
+PARENT_DIRECTORY=$(pwd)
+cd $HOME_DIRECTORY
+#R_SCRIPT= whatever this ends up being
+LOG_FOLDER="/home/pi/Desktop/Github/Senior-Project/logs/"
+
+#$R_SCRIPT updateData.R
+#if update fails
+if [! $? -eq 0]; then
+	cd $LOG_FOLDER
+	echo date >> log.txt
+	echo "Failed to update data." >> log.txt
+
+	echo "The data failed to refresh. Do you want to continue with this update? [y/n]"
+	read continue
+
+	if [! continue grep $continue "y"];then
+		echo $HOME_DIRECTORY
+		echo "Exiting without updating."
+		read garbage_variable -p
+		exit
+	fi
+fi
+
+#re-render Driver.Rmd into index.html
+#cd src
+####$R_SCRIPT -e "rmarkdown::render('Driver.Rmd',output_file='/home/pi/Desktop/Github/Senior-Project/index.html')"
+
+#cd $PARENT_DIRECTORY
+git add *
+#I have not addressed what would happen if Pi were behind the repo.
+git commit -m "Automated push from pi."
+git push
+
+echo "Finished Successfully" 
