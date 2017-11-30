@@ -6,6 +6,7 @@ cd $HOME_DIRECTORY
 #R_SCRIPT= whatever this ends up being
 LOG_FOLDER="/home/pi/Desktop/Github/Senior-Project/logs/"
 
+<<<<<<< HEAD
 $R_SCRIPT updateData.R
 #if update fails
 if [! $? -eq 0];
@@ -23,7 +24,7 @@ if [! $? -eq 0];
 		read garbage_variable -p
 		exit;
 	fi;
-
+=======
 #$R_SCRIPT updateData.R
 #if update fails
 if [! $? -eq 0]; then
@@ -40,10 +41,12 @@ if [! $? -eq 0]; then
 		read garbage_variable -p
 		exit
 	fi
+>>>>>>> 603629a73f6c473e3cc48001964b30a060b101aa
 fi
 
 #re-render Driver.Rmd into index.html
 #cd src
+<<<<<<< HEAD
 #$R_SCRIPT
 
 cd $PARENT_DIRECTORY
@@ -53,6 +56,7 @@ git commit -m "Automated push."
 
 echo "Finished Successfully"
 read garbage_variable -p
+=======
 ####$R_SCRIPT -e "rmarkdown::render('Driver.Rmd',output_file='/home/pi/Desktop/Github/Senior-Project/index.html')"
 
 #cd $PARENT_DIRECTORY
@@ -62,5 +66,5 @@ git commit -m "Automated push from pi."
 git push
 
 echo "Finished Successfully" 
-cd $HOME_DIRECTORY 
-
+cd HOME_DIRECTORY 
+>>>>>>> 603629a73f6c473e3cc48001964b30a060b101aa

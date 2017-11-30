@@ -23,6 +23,8 @@ IF NOT "0" == "%ERRORLEVEL%" (
   )
 )
 
+git pull
+
 ::re-render Driver.Rmd into index.html
 cd src
 %R_Script% -e "rmarkdown::render('Driver.Rmd',output_file='C:/Users/Hume Dickie/Desktop/Github/Senior-Project/index.html')"
