@@ -1,5 +1,0 @@
-#!/bin/bash
-HOME_DIRECTORY=$(pwd)
-cd ..
-PARENT_DIRECTORY=$(pwd)
-cd HOME_DIRECTORY
