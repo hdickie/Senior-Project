@@ -2,7 +2,6 @@
 HOME_DIRECTORY=$(pwd)
 cd ..
 PARENT_DIRECTORY=$(pwd)
-<<<<<<< HEAD
 cd $HOME_DIRECTORY
 #R_SCRIPT= whatever this ends up being
 LOG_FOLDER="/home/pi/Desktop/Github/Senior-Project/logs/"
@@ -36,6 +35,4 @@ git commit -m "Automated push from pi."
 git push
 
 echo "Finished Successfully" 
-=======
-cd HOME_DIRECTORY
->>>>>>> 68366d61a901f0afd1f4f8b9cf90c9c11446aa57
+cd HOME_DIRECTORY 
