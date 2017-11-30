@@ -12,21 +12,41 @@ library("dbConnect")
 
 ```{r connect}
 user <- 'root'
-pass <- ''
-host <- '10.0.0.82'
+pass <- 'seniorproject'
+host <- 'localhost'
 port <- 3306
-dbname <- 'information_schema'
+dbname <- 'webtraffic'
 con <- dbConnect(RMySQL::MySQL(),user = user,password = pass,host = host, dbname = dbname)
 ```
 
 ```{r connected???}
 
 ##the request is stored on the server, and must be fetched later
-dbSendQuery(con, 'SELECT * FROM top100newsdb.top100news')
+dbSendQuery(con, 'show tables;')
 
 request <- dbListResults(con)[[1]]
 
 #I think the n = -1 asks the server to send all pending requests
 fetched.data <- fetch(request,n=-1)
+
+```
+
+```{r uploadData}
+setwd("C:/Users/Hume Dickie/Desktop/Senior Project/data/raw/web-traffic")
+firstUpload <- read.csv("All-Pages-Aug-2016.csv",fileEncoding="UTF-8-BOM")
+dbWriteTable(con,"firstupload",firstUpload)
+```
+
+```{r readFromDB}
+firstDownload <- dbSendQuery(con,'SELECT * FROM firstupload;')
+request <- dbListResults(con)[[1]]
+first.real.fetched.data <- fetch(request,n=-1)
+```
+
+```{r uploadFirstOnly}
+
+```
+
+```{r uploadAllUpdates}
 
 ```

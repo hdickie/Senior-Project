@@ -1,0 +1,120 @@
+#Potential lines of interest from Pi logs
+Nov 03 17:17:07 raspberrypi systemd-udevd[109]: Process '/usr/sbin/th-cmd --socket /var/run/thd.socket --passfd --udev' failed with exit code 1
+\
+Nov 03 17:18:14 raspberrypi systemd[1]: dev-ttyAMA0.device: Job dev-ttyAMA0.device/start timed out.
+Nov 03 17:18:14 raspberrypi systemd[1]: Timed out waiting for device dev-ttyAMA0.device.
+-- Subject: Unit dev-ttyAMA0.device has failed
+-- Defined-By: systemd
+-- Support: https://www.debian.org/support
+-- 
+-- Unit dev-ttyAMA0.device has failed.
+-- 
+-- The result is timeout.
+Nov 03 17:18:14 raspberrypi systemd[1]: Dependency failed for Serial Getty on ttyAMA0.
+-- Subject: Unit serial-getty@ttyAMA0.service has failed
+-- Defined-By: systemd
+-- Support: https://www.debian.org/support
+-- 
+-- Unit serial-getty@ttyAMA0.service has failed.
+-- 
+-- The result is dependency.
+Nov 03 17:18:14 raspberrypi systemd[1]: serial-getty@ttyAMA0.service: Job serial-getty@ttyAMA0.service/start failed with result 'dependency'.
+Nov 03 17:18:14 raspberrypi systemd[1]: dev-ttyAMA0.device: Job dev-ttyAMA0.device/start failed with result 'timeout'.
+Nov 03 17:18:14 raspberrypi systemd[1]: dev-serial1.device: Job dev-serial1.device/start timed out.
+Nov 03 17:18:14 raspberrypi systemd[1]: Timed out waiting for device dev-serial1.device.
+-- Subject: Unit dev-serial1.device has failed
+-- Defined-By: systemd
+-- Support: https://www.debian.org/support
+-- 
+-- Unit dev-serial1.device has failed.
+-- 
+-- The result is timeout.
+Nov 03 17:18:14 raspberrypi systemd[1]: dev-serial1.device: Job dev-serial1.device/start failed with result 'timeout'.
+Nov 03 17:18:14 raspberrypi systemd[1]: dev-mmcblk0p6.device: Job dev-mmcblk0p6.device/start timed out.
+Nov 03 17:18:14 raspberrypi systemd[1]: Timed out waiting for device dev-mmcblk0p6.device.
+-- Subject: Unit dev-mmcblk0p6.device has failed
+-- Defined-By: systemd
+-- Support: https://www.debian.org/support
+-- 
+-- Unit dev-mmcblk0p6.device has failed.
+-- 
+-- The result is timeout.
+Nov 03 17:18:14 raspberrypi systemd[1]: Dependency failed for File System Check on /dev/mmcblk0p6.
+-- Subject: Unit systemd-fsck@dev-mmcblk0p6.service has failed
+-- Defined-By: systemd
+-- Support: https://www.debian.org/support
+-- 
+-- Unit systemd-fsck@dev-mmcblk0p6.service has failed.
+-- 
+-- The result is dependency.
+Nov 03 17:18:14 raspberrypi systemd[1]: Dependency failed for /boot.
+-- Subject: Unit boot.mount has failed
+-- Defined-By: systemd
+-- Support: https://www.debian.org/support
+-- 
+-- Unit boot.mount has failed.
+-- 
+-- The result is dependency.
+Nov 03 17:18:14 raspberrypi systemd[1]: Dependency failed for Local File Systems.
+-- Subject: Unit local-fs.target has failed
+-- Defined-By: systemd
+-- Support: https://www.debian.org/support
+-- 
+-- Unit local-fs.target has failed.
+-- 
+-- The result is dependency.
+Nov 03 17:18:14 raspberrypi systemd[1]: local-fs.target: Job local-fs.target/start failed with result 'dependency'.
+Nov 03 17:18:14 raspberrypi systemd[1]: local-fs.target: Triggering OnFailure= dependencies.
+Nov 03 17:18:14 raspberrypi systemd[1]: boot.mount: Job boot.mount/start failed with result 'dependency'.
+Nov 03 17:18:14 raspberrypi systemd[1]: systemd-fsck@dev-mmcblk0p6.service: Job systemd-fsck@dev-mmcblk0p6.service/start failed with result 'dependency'.
+Nov 03 17:18:14 raspberrypi systemd[1]: dev-mmcblk0p6.device: Job dev-mmcblk0p6.device/start failed with result 'timeout'
+\
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Free blocks count wrong for group #0 (17936, counted=8492).
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Free blocks count wrong for group #17 (4696, counted=4670).
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Free blocks count wrong for group #33 (11458, counted=4342).
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Free blocks count wrong for group #129 (6828, counted=6831).
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Free blocks count wrong for group #195 (5938, counted=5940).
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Free blocks count wrong (5868800, counted=5852219).
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Inode bitmap differences:  -264978 -(264990--264991) -264997 -(265000--265001) -265025 -265028 -265030 -265032 -(265034--265036) -265051 -(265056--265057) -(265061--265064) -(265066--265067) -265077 -265086
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Free inodes count wrong for group #32 (12, counted=36).
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Free inodes count wrong (1695812, counted=1695836).
+Nov 03 17:19:27 raspberrypi systemd-fsck[92]: Fix? yes
+Nov 03 17:19:28 raspberrypi systemd-fsck[92]: root: ***** FILE SYSTEM WAS MODIFIED *****
+Nov 03 17:19:28 raspberrypi systemd-fsck[92]: root: ***** REBOOT SYSTEM *****
+Nov 03 17:19:28 raspberrypi systemd-fsck[92]: root: 151940/1847776 files (0.3% non-contiguous), 1529797/7382016 blocks
+Nov 03 17:19:28 raspberrypi systemd-fsck[92]: fsck failed with error code 3.
+Nov 03 17:19:28 raspberrypi systemd-fsck[92]: Running request reboot.target/start/replace
+Nov 03 17:19:28 raspberrypi systemd[1]: systemd-fsck-root.service: Main process exited, code=exited, status=1/FAILURE
+Nov 03 17:19:28 raspberrypi systemd[1]: Failed to start File System Check on Root Device.
+-- Subject: Unit systemd-fsck-root.service has failed
+-- Defined-By: systemd
+-- Support: https://www.debian.org/support
+-- 
+-- Unit systemd-fsck-root.service has failed.
+-- 
+-- The result is failed.
+Nov 03 17:19:28 raspberrypi systemd[1]: systemd-fsck-root.service: Unit entered failed state.
+Nov 03 17:19:28 raspberrypi systemd[1]: systemd-fsck-root.service: Failed with result 'exit-code'.
+Nov 03 17:19:28 raspberrypi systemd[1]: Starting Remount Root and Kernel File Systems...
+\
+Nov 30 11:25:23 raspberrypi kernel: EXT4-fs (mmcblk0p5): mounted filesystem with ordered data mode. Opts: (null)
+Nov 30 11:25:24 raspberrypi udisksd[1008]: Mounted /dev/mmcblk0p5 at /media/pi/SETTINGS on behalf of uid 1000
+Nov 30 11:26:01 raspberrypi systemd[1]: dev-serial1.device: Job dev-serial1.device/start timed out.
+Nov 30 11:26:01 raspberrypi systemd[1]: Timed out waiting for device dev-serial1.device.
+-- Subject: Unit dev-serial1.device has failed
+-- Defined-By: systemd
+-- Support: https://www.debian.org/support
+-- 
+-- Unit dev-serial1.device has failed.
+-- 
+-- The result is timeout.
+Nov 30 11:26:01 raspberrypi systemd[1]: dev-serial1.device: Job dev-serial1.device/start failed with result 'timeout'.
