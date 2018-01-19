@@ -311,11 +311,16 @@ $(document).ready(function () {
 </div>
 
 
+<pre class="r"><code>database &lt;- dbConnect(MySQL(), user='root', password='MyNewPass', dbname='senior_project', host='localhost')
+
+dbSendQuery(database, 'SELECT * FROM web_traffic;') #any SQL statement works here!</code></pre>
+<pre><code>## &lt;MySQLResult:280143712,0,0&gt;</code></pre>
+<pre class="r"><code>request &lt;- dbListResults(database)[[1]]
+
+#n = -1 asks the server to send all pending requests
+web.traffic.data &lt;- fetch(request,n=-1)</code></pre>
 <p>This is the page that will be auto updated when new data is added. Here is proof!</p>
-<pre class="r"><code>print(dim(first.dataset1))</code></pre>
-<pre><code>## [1] 286 366</code></pre>
-<pre class="r"><code>print(dim(first.top100news))</code></pre>
-<pre><code>## [1] 100 455</code></pre>
+<pre class="r"><code>#code</code></pre>
 
 
 

@@ -5,20 +5,26 @@ date: "November 22, 2017"
 output: html_document
 ---
 
-```{r libs, include=FALSE}
-
+```{r setup, include = FALSE}
+library(googlesheets)
+library(RMySQL)
+library(reshape2)
+library(magrittr)
 ```
 
-```{r getData, include=FALSE}
-#assumes this file is in the src folder
-setwd("../data/First-Uploads")
-first.dataset1 <- read.csv("dataset-1.csv")
-first.top100news <- read.csv("top100news.csv")
+```{r fetchFromDatabase}
+database <- dbConnect(MySQL(), user='root', password='MyNewPass', dbname='senior_project', host='localhost')
+
+dbSendQuery(database, 'SELECT * FROM web_traffic;') #any SQL statement works here!
+
+request <- dbListResults(database)[[1]]
+
+#n = -1 asks the server to send all pending requests
+web.traffic.data <- fetch(request,n=-1)
 ```
 
 This is the page that will be auto updated when new data is added. Here is proof!
 
-```{r outputDataDimensions}
-print(dim(first.dataset1))
-print(dim(first.top100news))
+```{r analysis}
+#code
 ```
