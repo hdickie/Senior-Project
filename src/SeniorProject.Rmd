@@ -1,0 +1,402 @@
+---
+title: "SeniorProject"
+output: html_document
+---
+
+```{r setup}
+library(googledrive)
+library(RMySQL)
+library(reshape2)
+library(magrittr)
+library(vars)
+library(MTS)
+library(gplots)
+library(beepr)
+```
+
+
+# Connect to Google Drive
+```{r googleDrive}
+data.folder.id <- "1CakyziIpT39meYk05QaBNNEQf4aoWtXh"
+
+tryCatch({
+  data.folder <- drive_get(as_id(data.folder.id))
+},error=function(e){
+  print(e)
+  drive_deauth()
+  stop()
+})
+
+file.tibble <- drive_ls(data.folder)
+
+
+for (key in file.tibble$id){
+  tryCatch({
+    drive_download(as_id(key))
+  },error=function(e){
+    #do nothing
+  })
+}
+
+data <- read.csv(file.tibble[1,"name"] %>% as.character())
+if (nrow(file.tibble) > 1){
+  for (filename in file.tibble[2:nrow(file.tibble),"name"] %>% unlist()) {
+    data <- rbind(data,read.csv(filename))
+  }
+}
+names(data) <- c("Page","Date","Pageviews","Unique Pageviews","Avg Time on Page","Entrances","Bounce Rate","Percent Exit","Page Value")
+data <- as.data.frame(data)
+```
+
+```{r intoDatabase}
+database <- dbConnect(MySQL(), user='root', password='MyNewPass', dbname='senior_project', host='localhost')
+
+dbWriteTable(database,name="webtraf",data,append=TRUE,row.names=FALSE)
+```
+
+```{r fetchFromDatabase}
+dbSendQuery(database, 'SELECT * FROM webtraf;') #any SQL statement works here!
+
+request <- dbListResults(database)[[1]]
+
+#n = -1 asks the server to send all pending requests
+web.traffic.data <- fetch(request,n=-1)
+web.traffic.data <- web.traffic.data[!duplicated(web.traffic.data),]
+```
+
+# ARMA
+```{r fitARMA}
+unique.pages <- web.traffic.data$Page %>% unique()
+unique.pages <- unique.pages[!unique.pages==""]
+  
+tryCatch({
+  setwd("../rds")
+   fit.armas.grid.search <- readRDS("fitARMAsGridSearch.rds")
+},error=function(e){
+  
+  
+  
+  fit.armas.grid.search <- list()
+  
+  #see what model paremeters perform the best
+  startTime <- Sys.time()
+  for (i in 1:length(unique.pages)) {
+    time.series <- web.traffic.data[which(web.traffic.data$Page == unique.pages[[i]]),"Pageviews"]
+    train <- time.series[1:635]
+    
+    fit.armas <- list()
+    for (p in 0:14) {
+      for (q in 0:14) {
+        tryCatch({
+          fit.armas[[14*p + q + 1]] <- arima(train,c(p,0,q))
+        }, error = function(e){
+          fit.armas[[14*p + q + 1]] <- NULL
+        })
+        
+        percentComplete <- ((14*p + q)*i/(14*14*10))
+        runningTime <- Sys.time() - startTime
+        estimateOfTotalTime <- runningTime/percentComplete
+        
+        estimatedFinishTime <- startTime + estimateOfTotalTime
+        print(paste("Start:",startTime,"Est. duration:",estimateOfTotalTime,"Est. finish time:",estimatedFinishTime,i,p,q,sep=" "))
+      }
+    }
+    
+    fit.armas.grid.search[[i]] <- fit.armas
+    rm(fit.armas)
+  }
+  setwd("../rds")
+  saveRDS(fit.armas.grid.search,"fitARMAsGridSearch.rds")
+})
+```
+
+```{r evaluatePredictionPerformance}
+time.series <- list()
+train.data <- list()
+test.data <- list()
+for (i in 1:length(unique.pages)) {
+  time.series[[i]] <- web.traffic.data[which(web.traffic.data$Page == unique.pages[[i]]),"Pageviews"]
+  train.data[[i]] <- time.series[[i]][1:635]
+  test.data[[i]] <- time.series[[i]][636:794]
+}
+
+arma.preds <- list()
+for (i in 1:length(unique.pages)) {
+  grid.of.preds <- list()
+  for (p in 1:14) {
+    for (q in 1:14) {
+      tryCatch({
+        grid.of.preds[[14*p + q + 1]] <- predict(fit.armas.grid.search[[i]][[14*p + q + 1]],newdata=test.data[[i]],n.ahead=144)
+      },error=function(e){
+        #print(paste(i,p,q))
+      })
+      
+    }
+  }
+  arma.preds[[i]] <- grid.of.preds
+  rm(grid.of.preds)
+}
+```
+
+```{r plotPredictions}
+setwd("../img/ARMAPredictionPlots")
+#readline("Would you like to ")
+for (i in 1:length(unique.pages)) {
+  for (p in 1:14) {
+    for (q in 1:14) {
+      
+      tryCatch({
+        if (is.null(arma.preds[[i]][[14*p + q + 1]]$pred)){
+        next
+      }
+      },error=function(e){
+        print(paste(i,p,q))
+      })
+      
+      
+      title <- paste("Page_",i,"_ARMA(",p,",",q,").png",sep="")
+      png(title)
+      plot(1:144,test.data[[i]][1:144])
+      title(title)
+      lines(1:144,test.data[[i]][1:144])
+      tryCatch({
+        
+        lines(1:144,arma.preds[[i]][[14*p + q + 1]]$pred,col="red")
+      },error=function(e){
+        print(paste(i,p,q))
+        plot.new()
+        tryCatch({(
+          next
+        )},error=function(e){
+          #tried to next on last iteration. safe to ignore
+        })
+      })
+      dev.off()
+    }
+  }
+}
+```
+
+```{r evaluateRootSumSquaredResiduals}
+page.grid.of.rssr <- list()
+for (i in 1:length(unique.pages)) {
+  rssr <- matrix(nrow=14,ncol=14)
+  for (p in 1:14){
+    for(q in 1:14) {
+      tryCatch({
+        if(is.null(arma.preds[[i]][[14*p + q + 1]])) {
+          rssr[p,q] <- NA
+        }else{
+          rssr[p,q] <- arma.preds[[i]][[14*p + q + 1]]$se %>% sum() %>% sqrt()
+        }
+        
+      },error=function(e){
+        rssr[p,q] <- NA
+      })
+        #rssr[p,q] <- .Machine$integer.max
+    }
+  }
+  page.grid.of.rssr[[i]] <- rssr
+  rm(rssr)
+}
+
+page.min.rssr <- list()
+indices.of.optimal <- list()
+for (i in 1:length(unique.pages)){
+  page.min.rssr[[i]] <- page.grid.of.rssr[[i]][!is.na(page.grid.of.rssr[[i]])] %>% unlist() %>% min()
+  indices.of.optimal[[i]] <- which(page.grid.of.rssr[[i]] %>% unlist() == page.min.rssr[[i]])
+}
+
+optimal.parameters <- list()
+for (i in 1:length(unique.pages)){
+  optimal.parameters[[i]] <- c(floor(indices.of.optimal[[1]]/14),indices.of.optimal[[i]] %% 14)
+}
+
+for(i in 1:length(unique.pages)){
+  page.grid.of.rssr[[i]][is.na(page.grid.of.rssr[[i]])] <- .Machine$integer.max
+  page.grid.of.rssr[[i]] <- page.grid.of.rssr[[i]] - (page.grid.of.rssr[[i]] %>% min())
+  page.grid.of.rssr[[i]][page.grid.of.rssr[[i]]==max(page.grid.of.rssr[[i]])] <- (sort(page.grid.of.rssr[[1]]) %>% unique())[[(sort(page.grid.of.rssr[[1]]) %>% unique() %>% length()) - 1]]
+  
+  png(paste("SSR of ARMA(p,q) on Page ",i,".png",sep=""))
+  heatmap.2(page.grid.of.rssr[[i]],Rowv=FALSE,Colv=FALSE,tracecol = NA)
+  title("ARMA(p,q) Sum of Squared Residuals")
+  text(.55,.82,unique.pages[[i]])
+  text(.4,.95,paste("Optimal Model: ARMA(",paste(optimal.parameters[[i]],collapse=","),")",sep=""))
+  dev.off()
+}
+```
+
+These 10 ARMA models achieved their peak predicitve ability where p = 9. There was less agreement on the moving average portion, but q = 7 is the only one that came up twice. For modeling these pages in general, I would move forward with ARMA(9,7).
+
+# VAR
+```{r var}
+
+unique.dates <- unique(web.traffic.data$Date) %>% sort()
+
+vector.form.data <- matrix(nrow=length(unique.dates),ncol=length(unique.pages))
+for(k in 1:length(unique.dates)) {
+  relevant.rows <- web.traffic.data[which(web.traffic.data$Date == unique.dates[[k]]),]
+  
+  for(i in 1:length(unique.pages)) {
+    vector.form.data[k,i] <- relevant.rows[which(relevant.rows$Page == unique.pages[[i]]),"Pageviews"]
+  }
+  #vector.form.data[k,i+1] <- unique.dates[[k]]
+}
+
+vector.form.data <- apply(vector.form.data,2,as.numeric)
+
+opt.var <- VARselect(vector.form.data[,1:10],lag.max = 14)
+
+vector.form.data <-cbind(vector.form.data,unique.dates) %>% as.data.frame()
+```
+
+Since these models intend to be used for prediction, using AIC is desirable. The fact 8 showed up again using another selection criterion affirms our choice slightly. I would move forward with VAR(8).
+
+# VARMA
+```{r fitvarma}
+varma.train <- vector.form.data[1:780,]
+varma.test <- vector.form.data[781:794,]
+
+tryCatch({
+  setwd("../rds")
+  varma.fit <- readRDS("varmaFit.rds")
+},error=function(e){
+  varma.fit <- VARMA(vector.form.data,p=1,q=1)
+  setwd("../rds")
+  saveRDS(varma.fit,"varmaFit.rds")
+})
+beep(1)
+```
+
+```{r testNullHypotheses}
+parameter.estimates <- varma.fit$coef
+estimate.ses <- varma.fit$secoef
+
+reject.null.hypotheses <- abs(parameter.estimates) > (estimate.ses * 1.96) #HT param = 0 @ 95% significance
+reject.null.hypotheses[is.na(reject.null.hypotheses)] <- FALSE
+reject.null.hypotheses[reject.null.hypotheses] <- 1
+reject.null.hypotheses[!reject.null.hypotheses] <- 0
+
+not.reject.null.hypotheses <- reject.null.hypotheses
+not.reject.null.hypotheses[which(reject.null.hypotheses == 1)] <- 0
+not.reject.null.hypotheses[which(reject.null.hypotheses == 0)] <- 1
+
+heatmap.2(not.reject.null.hypotheses,Rowv=FALSE,Colv=FALSE)
+title("Statistically Significant VARMA(1,1) Parameters")
+```
+
+```{r visualizePredictions}
+varma.pred <- VARMApred(varma.fit,h=14)
+
+for(page.index in 1:(ncol(varma.train)-1)){
+  png(paste("varma",page.index,".png",sep=""))
+  
+  predictions <- varma.pred$pred[,page.index]
+  upper.bound <- predictions + varma.pred$se[,page.index]
+  lower.bound <- predictions - varma.pred$se[,page.index]
+  
+  y.plot.upper.bound <- c(varma.test[,page.index],upper.bound) %>% max()
+  y.plot.lower.bound <- c(varma.test[,page.index],lower.bound) %>% min()
+  
+  plot(1:nrow(varma.test),varma.test[,page.index],ylim=c(y.plot.upper.bound,y.plot.lower.bound))
+  lines(1:nrow(varma.test),varma.test[,page.index]) # test data
+  
+  lines(1:nrow(varma.test),upper.bound,col="red",lwd=1) #predictions
+  lines(1:nrow(varma.test),predictions,col="red",lwd=3)
+  lines(1:nrow(varma.test),lower.bound,col="red",lwd=1)
+  
+  title(paste("VARMA(",varma.fit$ARorder,",",varma.fit$MAorder,") predictions on Page ",page.index,"/",ncol(varma.train),sep=""))
+
+  observed.data <- varma.fit$data[2:nrow(varma.fit$data),page.index]
+  residuals <- varma.fit$residuals[,page.index]
+  
+  SSE <- (residuals ** 2) %>% sum()
+  TSS <- ((observed.data - mean(observed.data)) ** 2) %>% sum()
+  
+  varma.R.squared <- paste((1 - SSE/TSS) %>% as.character() %>% substr(3,4),"%",sep="")
+  varma.AIC <- varma.fit$aic %>% as.character() %>% substr(0,4)
+  varma.BIC <- varma.fit$bic %>% as.character() %>% substr(0,4)
+  
+  mtext(paste("R squared:",varma.R.squared,"AIC:",varma.AIC,"BIC:",varma.BIC))
+  dev.off()
+}
+```
+
+```{r subsetWithLessMulticollinearity}
+
+```
+
+# ARIMA
+
+```{r arima}
+homepage.data <- web.traffic.data[which(web.traffic.data$Page=="www.usfca.edu/"),]
+homepage.data <- homepage.data[order(homepage.data$Date),]
+  
+homepage.train <- homepage.data[1:(nrow(homepage.data)-14),"Pageviews"]
+homepage.test <- homepage.data[(nrow(homepage.data)-13):(nrow(homepage.data)),"Pageviews"]
+
+tryCatch({
+  setwd("../rds")
+  optimal.model <- readRDS("homepageArimaFit.rds")
+},error=function(e){
+
+  
+  #fit for optimal parameters with d = 1
+  min.aic <- 9999999999
+  optimal.model <- NA
+  for (p in 1:14) {
+    for (q in 1:14) {
+      tryCatch({
+        arima.fit <- arima(homepage.train,order=c(p,1,q))
+        if(arima.fit$aic < min.aic) {
+          min.aic <- arima.fit$aic
+          optimal.model <- arima.fit
+        }
+      },error=function(e){
+        beep(7)
+      })
+    }
+    beep(2)
+  }
+  beep(8)
+  setwd("../rds")
+  saveRDS(optimal.model,"homepageArimaFit.rds")
+})
+
+```
+
+```{r plotARIMApredictions}
+homepage.predictions <- predict(optimal.model,newdata=homepage.test,n.ahead=14)
+
+
+png("homePagePredictions.png")
+plot(1:length(homepage.predictions$pred),homepage.test)
+lines(1:length(homepage.predictions$pred),homepage.test)
+lines(1:length(homepage.predictions$pred),homepage.predictions$pred,col="red")
+
+p <- optimal.model$model$phi %>% length()
+q <- optimal.model$model$theta %>% length()
+d <- optimal.model$model$Delta
+title(paste("ARIMA(",p,",",d,",",q,") predictions of www.usfca.edu/",sep=""))
+dev.off()
+```
+
+```{r fitSARIMA}
+tryCatch({
+  setwd("../rds")
+  readRDS("monthlySarimaFit.rds")
+},error=function(e){
+  monthly.sarima.fit <- arima(homepage.train,seasonal=list(order=c(7,1,7),period=28))
+  setwd("../rds")
+  saveRDS(monthly.sarima.fit,"monthlySarimaFit.rds")
+})
+```
+
+```{r finishedSuccessfully}
+beep(3)
+```
+
+TODO
+Document performance of VARMA
+Fit and document performance of ARIMA on USF's homepage
+  Make ARIMA updatable
