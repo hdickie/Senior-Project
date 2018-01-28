@@ -233,7 +233,7 @@ for(i in 1:length(unique.pages)){
 </tr>
 </table>
 
-TODO LINK TO PAGE OF ALL HEATMAPS
+<a href="./pages/arma-heatmaps/html">Click here for more heatmaps.</a>
 
 ```{r plotPredictions, include=FALSE}
 if (output.plots){
@@ -277,8 +277,6 @@ if (output.plots){
 ```
 These 10 ARMA models achieved their peak predicitve ability where p = 9. There was less agreement on the moving average portion, but q = 7 is the only one that came up twice. For modeling these pages in general, I would move forward with ARMA(9,7). The following plots are predictions using ARMA(9,7).
 
-TODO square of 4 predictions
-TODO LINK TO ALL PREDICTIONS FOR EACH PAGE
 
 ## VAR
 ```{r var, include=FALSE}
