@@ -3,7 +3,7 @@ title: "USF Marketing Site Web Traffic Analysis"
 output: html_document
 ---
 
-<link rel="stylesheet" type="text/css" href="../style/style.css">
+<link rel="stylesheet" type="text/css" href="./style/style.css">
 
 This project has several parts:
 
@@ -47,7 +47,7 @@ file.tibble <- drive_ls(data.folder)
 
 for (key in file.tibble$id){
   tryCatch({
-    setwd("../data")
+    setwd("./data")
     drive_download(as_id(key)) #download files to localhost
   },error=function(e){
     #do nothing
@@ -92,7 +92,7 @@ unique.pages <- web.traffic.data$Page %>% unique()
 unique.pages <- unique.pages[!unique.pages==""]
   
 tryCatch({
-  setwd("../rds")
+  setwd("./rds")
    fit.armas.grid.search <- readRDS("fitARMAsGridSearch.rds")
 },error=function(e){
   
@@ -129,7 +129,7 @@ tryCatch({
     fit.armas.grid.search[[i]] <- fit.armas
     rm(fit.armas)
   }
-  setwd("../rds")
+  setwd("./rds")
   saveRDS(fit.armas.grid.search,"fitARMAsGridSearch.rds")
 })
 ```
@@ -197,7 +197,7 @@ for (i in 1:length(unique.pages)){
   optimal.parameters[[i]] <- c(floor(indices.of.optimal[[1]]/14),indices.of.optimal[[i]] %% 14)
 }
 
-setwd("../img/ARMA_SSE_Heatmaps")
+setwd("./img/ARMA_SSE_Heatmaps")
 heatmaps <- list()
 for(i in 1:length(unique.pages)){
   page.grid.of.rssr[[i]][is.na(page.grid.of.rssr[[i]])] <- .Machine$integer.max
@@ -217,18 +217,18 @@ for(i in 1:length(unique.pages)){
 <table>
 <tr>
   <td>
-    <a href="../img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 1.png" target="_blank"></td><td><img src="../img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 1.png" /></a>
+    <a href="./img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 1.png" target="_blank"></td><td><img src="./img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 1.png" /></a>
   </td>
   <td>
-    <a href="../img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 3.png" target="_blank"></td><td><img src="../img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 3.png" /></a>
+    <a href="./img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 3.png" target="_blank"></td><td><img src="./img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 3.png" /></a>
   </td>
 </tr>
 <tr>
   <td>
-      <a href="../img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 7.png" target="_blank"></td><td><img src="../img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 7.png" /></a>
+      <a href="./img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 7.png" target="_blank"></td><td><img src="./img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 7.png" /></a>
     </td>
     <td>
-      <a href="../img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 10.png" target="_blank"></td><td><img src="../img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 10.png" /></a>
+      <a href="./img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 10.png" target="_blank"></td><td><img src="./img/ARMA_SSE_Heatmaps/SSE of ARMA(p,q) on Page 10.png" /></a>
   </td>
 </tr>
 </table>
@@ -237,7 +237,7 @@ TODO LINK TO PAGE OF ALL HEATMAPS
 
 ```{r plotPredictions, include=FALSE}
 if (output.plots){
-  setwd("../img/ARMAPredictionPlots")
+  setwd("./img/ARMAPredictionPlots")
   #readline("Would you like to ")
   for (i in 1:length(unique.pages)) {
     for (p in 1:14) {
@@ -315,11 +315,11 @@ varma.train <- vector.form.data[1:780,]
 varma.test <- vector.form.data[781:794,]
 
 tryCatch({
-  setwd("../rds")
+  setwd("./rds")
   varma.fit <- readRDS("varmaFit.rds")
 },error=function(e){
   varma.fit <- VARMA(vector.form.data,p=1,q=1)
-  setwd("../rds")
+  setwd("./rds")
   saveRDS(varma.fit,"varmaFit.rds")
 })
 beep(1)
@@ -391,7 +391,7 @@ homepage.train <- homepage.data[1:(nrow(homepage.data)-14),"Pageviews"]
 homepage.test <- homepage.data[(nrow(homepage.data)-13):(nrow(homepage.data)),"Pageviews"]
 
 tryCatch({
-  setwd("../rds")
+  setwd("./rds")
   optimal.model <- readRDS("homepageArimaFit.rds")
 },error=function(e){
 
@@ -414,7 +414,7 @@ tryCatch({
     beep(2)
   }
   beep(8)
-  setwd("../rds")
+  setwd("./rds")
   saveRDS(optimal.model,"homepageArimaFit.rds")
 })
 
@@ -423,7 +423,7 @@ tryCatch({
 ```{r plotARIMApredictions, include=FALSE}
 homepage.predictions <- predict(optimal.model,newdata=homepage.test,n.ahead=14)
 
-
+setwd("./img")
 png("homePagePredictions.png")
 plot(1:length(homepage.predictions$pred),homepage.test)
 lines(1:length(homepage.predictions$pred),homepage.test)
@@ -438,11 +438,11 @@ dev.off()
 
 ```{r fitSARIMA, include=FALSE}
 tryCatch({
-  setwd("../rds")
+  setwd("./rds")
   readRDS("monthlySarimaFit.rds")
 },error=function(e){
   monthly.sarima.fit <- arima(homepage.train,seasonal=list(order=c(7,1,7),period=28))
-  setwd("../rds")
+  setwd("./rds")
   saveRDS(monthly.sarima.fit,"monthlySarimaFit.rds")
 })
 ```
