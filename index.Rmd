@@ -5,6 +5,24 @@ output: html_document
 
 <link rel="stylesheet" type="text/css" href="./style/style.css">
 
+This project explores a dataset of 795 rows x 10 columns. Each column is a webpage on <a href="www.usfca.edu/">University of San Francisco's Marketing Site</a>. The 10 highest activity pages were chosen to avoid sparsity. Each row contains the daily count of pageviews for that each of these 10 webpages. The complete data set represents about 26 months of activity.
+
+In order of activity, the pages studied in this project are:
+<ol>
+<li><a href="http://www.usfca.edu/">USF's Homepage</a></li>
+<li><a href="http://www.usfca.edu/arts-sciences/undergraduate-programs">Arts & Sciences Undergrad Programs</a></li>
+<li><a href="http://www.usfca.edu/arts-sciences/undergraduate-programs/computer-science">Undergrad Computer Science</a></li>
+<li><a href="http://www.usfca.edu/arts-sciences/undergraduate-programs/biology">Undergrad Biology</a></li>
+<li><a href="http://www.usfca.edu/arts-sciences">Arts & Sciences Homepage</a></li>
+<li><a href="http://www.usfca.edu/arts-sciences/undergraduate-programs/art-architecture/design">Design Major</a></li>
+<li><a href="http://www.usfca.edu/arts-sciences/undergraduate-programs/data-science">Undergrad Data Science</a> (represent!)</li>
+<li><a href="http://www.usfca.edu/arts-sciences/undergraduate-programs/media-studies">Media Studies</a></li>
+<li><a href="http://www.usfca.edu/arts-sciences/undergraduate-programs/communication-studies">Communication Studies</a></li>
+<li><a href="http://www.usfca.edu/arts-sciences/undergraduate-programs/dual-degree-teacher-preparation">Dual Degree Teacher Prep</a></li>
+</ol>
+
+I have one main question: <b>Can we predict tomorrows pageviews with higher accuracy if we know the activity of other pages?</b>
+
 This project has several parts:
 
 <ol>
@@ -13,6 +31,8 @@ This project has several parts:
 <li>Automated analysis of several time series models: ARMA, VARMA, VARIMA, SARIMA</li>
 <li>Run this software on a Raspberry Pi</li>
 </ol>
+
+The "automated analysis" here is a proof of concept instead of a useful product. This code could be adapted to provide close to real-time reporting or more practical model fitting.
 
 ```{r setup, include=FALSE}
 library(googledrive)
@@ -26,6 +46,8 @@ library(beepr)
 library(gridExtra)
 
 output.plots <- FALSE
+
+end.train.data <- 780
 ```
 
 
@@ -83,9 +105,23 @@ web.traffic.data <- fetch(request,n=-1)
 web.traffic.data <- web.traffic.data[!duplicated(web.traffic.data),]
 ```
 
-## Analysis
+# Analysis
 
-#### SSE Heatmap of ARMA(p,q) on 4 out of 10 Highest Activity Pages
+## ARMA
+
+To select the ideal parameters for the ARMA model, I fit models on a lag of anywhere between 1 and 14 days for both parameters. The prediction error of each of these models produced a heatmap. I focus on just 4 pages to compare ARMA and VARMA.
+
+From left to right, top to bottom:
+
+<table>
+<tr><th>Page</th><th>Content</th></tr>
+<tr><td>Page 1</td><td> Undergrad Data Science</td></tr>
+<tr><td>Page 3</td><td> Undergrad Computer Science</td></tr>
+<tr><td>Page 7</td><td> Communication Studies</td></tr>
+<tr><td>Page 10</td><td> USF's Homepage</td></tr>
+</table>
+
+The heatmaps look generally the same, with higher sparsity seemingly related to a higher chance of a failed model fit.
 ```{r fitARMA, include=FALSE}
 #will use string of page url for index
 unique.pages <- web.traffic.data$Page %>% unique()
@@ -96,40 +132,43 @@ tryCatch({
    fit.armas.grid.search <- readRDS("fitARMAsGridSearch.rds")
 },error=function(e){
   
-  
-  
   fit.armas.grid.search <- list()
   
   #compute SSE for p=1:14 x q=1:14
   startTime <- Sys.time()
+  scaled <- list()
   for (i in 1:length(unique.pages)) {
     time.series <- web.traffic.data[which(web.traffic.data$Page == unique.pages[[i]]),"Pageviews"]
-    train <- time.series[1:635]
+    train <- time.series[1:end.train.data]
     
     fit.armas <- list()
     for (p in 0:14) {
       for (q in 0:14) {
         tryCatch({
+          scaled[[14*p + q + 1]] <- FALSE
           fit.armas[[14*p + q + 1]] <- arima(train,c(p,0,q))
         }, error = function(e){
-          fit.armas[[14*p + q + 1]] <- NULL
+          #the model fit could fail for several reasons. Computing the covariance matrix for large values can fail, so scaling the input avoids that problem. It's also possible there is a large scale trend (which this model wouldnt account for because d = 1). This is avoided by setting method = maximum likelihood. A failure to converge may also be solved with some extra iterations.
+          tryCatch({
+            fit.armas[[14*p + q + 1]] <- arima(train/1000,c(p,0,q),method="ML",optim.control=list(maxit=1000))
+          },error=function(e){
+            print(paste("ARMA fit failed for",i,p,q,sep=" "))
+          })
+          scaled[[14*p + q + 1]] <- TRUE
         })
         
-        percentComplete <- ((14*p + q)*i/(14*14*10))
-        runningTime <- Sys.time() - startTime
-        estimateOfTotalTime <- runningTime/percentComplete
-        
-        estimatedFinishTime <- startTime + estimateOfTotalTime
-        
-        #progress
-        print(paste("Start:",startTime,"Est. duration:",estimateOfTotalTime,"Est. finish time:",estimatedFinishTime,i,p,q,sep=" "))
       }
     }
+    percentComplete <- i/10
+    runningTime <- Sys.time() - startTime
+    estimateOfTotalTime <- runningTime/percentComplete
     
+    estimatedFinishTime <- startTime + estimateOfTotalTime
+        
+    print(paste("Start:",startTime,"Est. duration:",estimateOfTotalTime,"Est. finish time:",estimatedFinishTime,i,p,q,sep=" "))
     fit.armas.grid.search[[i]] <- fit.armas
     rm(fit.armas)
   }
-  setwd("./rds")
   saveRDS(fit.armas.grid.search,"fitARMAsGridSearch.rds")
 })
 ```
@@ -140,8 +179,8 @@ train.data <- list()
 test.data <- list()
 for (i in 1:length(unique.pages)) {
   time.series[[i]] <- web.traffic.data[which(web.traffic.data$Page == unique.pages[[i]]),"Pageviews"]
-  train.data[[i]] <- time.series[[i]][1:635]
-  test.data[[i]] <- time.series[[i]][636:794]
+  train.data[[i]] <- time.series[[i]][1:end.train.data]
+  test.data[[i]] <- time.series[[i]][(end.train.data+1):(time.series[[i]] %>% length())]
 }
 
 arma.preds <- list()
@@ -150,7 +189,7 @@ for (i in 1:length(unique.pages)) {
   for (p in 1:14) {
     for (q in 1:14) {
       tryCatch({
-        grid.of.preds[[14*p + q + 1]] <- predict(fit.armas.grid.search[[i]][[14*p + q + 1]],newdata=test.data[[i]],n.ahead=144)
+        grid.of.preds[[14*p + q + 1]] <- predict(fit.armas.grid.search[[i]][[14*p + q + 1]],newdata=test.data[[i]],n.ahead=14)
       },error=function(e){
         #print(paste(i,p,q))
       })
@@ -233,7 +272,7 @@ for(i in 1:length(unique.pages)){
 </tr>
 </table>
 
-<a href="./pages/arma-heatmaps/html">Click here for more heatmaps.</a>
+<a href="./pages/arma-heatmaps.html">Click here for more heatmaps.</a>
 
 ```{r plotPredictions, include=FALSE}
 if (output.plots){
@@ -252,14 +291,27 @@ if (output.plots){
         })
         
         
-        title <- paste("Page_",i,"_ARMA(",p,",",q,").png",sep="")
-        png(title)
-        plot(1:144,test.data[[i]][1:144])
-        title(title)
-        lines(1:144,test.data[[i]][1:144])
         tryCatch({
+          predictions <- arma.preds[[i]][[14*p + q + 1]]$pred
+          lower.bounds <- predictions - arma.preds[[i]][[14*p + q + 1]]$se
+          upper.bounds <- predictions + arma.preds[[i]][[14*p + q + 1]]$se
+          days <- 1:length(test.data[[i]])
+          pageviews <- test.data[[i]][1:length(test.data[[i]])]
           
-          lines(1:144,arma.preds[[i]][[14*p + q + 1]]$pred,col="red")
+          plot.y.lb <- c(pageviews,lower.bounds) %>% min()
+          plot.y.ub <- c(pageviews,upper.bounds) %>% max()
+          
+          title <- paste("Page_",i,"_ARMA(",p,",",q,").png",sep="")
+          print(title)
+          png(title)
+     
+          plot(days,pageviews,ylim=c(plot.y.lb,plot.y.ub))
+          lines(days,pageviews)
+          title(title)
+          
+          lines(days,predictions,col="red",lwd=3)
+          lines(days,lower.bounds,col="red") #lower bound
+          lines(days,upper.bounds,col="red") #upper bound
         },error=function(e){
           print(paste(i,p,q))
           plot.new()
@@ -277,8 +329,27 @@ if (output.plots){
 ```
 These 10 ARMA models achieved their peak predicitve ability where p = 9. There was less agreement on the moving average portion, but q = 7 is the only one that came up twice. For modeling these pages in general, I would move forward with ARMA(9,7). The following plots are predictions using ARMA(9,7).
 
+<table>
+<tr>
+  <td>
+    <a href="./img/ARMAPredictionPlots/Page_1_ARMA(9,7).png" target="_blank"></td><td><img src="./img/ARMAPredictionPlots/Page_1_ARMA(9,7).png"/></a>
+  </td>
+  <td>
+    <a href="./img/ARMAPredictionPlots/Page_3_ARMA(9,7).png" target="_blank"></td><td><img src="./img/ARMAPredictionPlots/Page_3_ARMA(9,7).png"/></a>
+  </td>
+</tr>
+<tr>
+  <td>
+    <a href="./img/ARMAPredictionPlots/Page_7_ARMA(9,7).png" target="_blank"></td><td><img src="./img/ARMAPredictionPlots/Page_7_ARMA(9,7).png"/></a>
+  </td>
+    <td>
+    <a href="./img/ARMAPredictionPlots/Page_10_ARMA(9,7).png" target="_blank"></td><td><img src="./img/ARMAPredictionPlots/Page_10_ARMA(9,7).png"/></a>
+  </td>
+</tr>
+</table>
 
-## VAR
+
+
 ```{r var, include=FALSE}
 
 unique.dates <- unique(web.traffic.data$Date) %>% sort()
@@ -297,26 +368,30 @@ vector.form.data <- apply(vector.form.data,2,as.numeric)
 
 opt.var <- VARselect(vector.form.data[,1:10],lag.max = 14)
 
+
+tryCatch({
+  setwd("./rds")
+  readRDS("varFit.rds")
+}, error = function(e){
+  #var.fit <- VARMA(vector.form.data[,1:10],p=8,q=0)
+  
+})
 vector.form.data <-cbind(vector.form.data,unique.dates) %>% as.data.frame()
 ```
 
-VARSelect 
-
-Since these models intend to be used for prediction, using AIC is desirable. The fact 8 showed up again using another selection criterion affirms our choice slightly. I would move forward with VAR(8).
-
-TODO VAR(8) predictions on the 4 pages
-TODO LINK TO THE REST OF THEM
-
 ## VARMA
+
+The VARMA model has many more parameters than ARMA. Accordingly, it requires many more degrees of freedom to fit. I fit a the smallest choice VARMA(p=1,q=1) to the data.
+
 ```{r fitvarma, include=FALSE}
-varma.train <- vector.form.data[1:780,]
-varma.test <- vector.form.data[781:794,]
+varma.train <- vector.form.data[1:end.train.data,]
+varma.test <- vector.form.data[(end.train.data):nrow(vector.form.data),]
 
 tryCatch({
   setwd("./rds")
   varma.fit <- readRDS("varmaFit.rds")
 },error=function(e){
-  varma.fit <- VARMA(vector.form.data,p=1,q=1)
+  varma.fit <- VARMA(varma.train,p=1,q=1)
   setwd("./rds")
   saveRDS(varma.fit,"varmaFit.rds")
 })
@@ -341,8 +416,9 @@ title("Statistically Significant VARMA(1,1) Parameters")
 ```
 
 ```{r visualizePredictions, include=FALSE}
+varma.pred <- VARMApred(varma.fit,h=14)
 if(output.plots){
-  varma.pred <- VARMApred(varma.fit,h=14)
+  setwd("./img/VARMAplots")
   
   for(page.index in 1:(ncol(varma.train)-1)){
     png(paste("varma",page.index,".png",sep=""))
@@ -354,14 +430,17 @@ if(output.plots){
     y.plot.upper.bound <- c(varma.test[,page.index],upper.bound) %>% max()
     y.plot.lower.bound <- c(varma.test[,page.index],lower.bound) %>% min()
     
-    plot(1:nrow(varma.test),varma.test[,page.index],ylim=c(y.plot.upper.bound,y.plot.lower.bound))
-    lines(1:nrow(varma.test),varma.test[,page.index]) # test data
+    days <- 1:nrow(varma.test)
+    pageviews <- varma.test[,page.index] %>% as.character() %>% as.numeric()
     
-    lines(1:nrow(varma.test),upper.bound,col="red",lwd=1) #predictions
-    lines(1:nrow(varma.test),predictions,col="red",lwd=3)
-    lines(1:nrow(varma.test),lower.bound,col="red",lwd=1)
+    plot(days,pageviews,ylim=c(y.plot.lower.bound,y.plot.upper.bound))
+    lines(days,pageviews) # test data
     
-    title(paste("VARMA(",varma.fit$ARorder,",",varma.fit$MAorder,") predictions on Page ",page.index,"/",ncol(varma.train),sep=""))
+    lines(days,upper.bound,col="red",lwd=1) #predictions
+    lines(days,predictions,col="red",lwd=3)
+    lines(days,lower.bound,col="red",lwd=1)
+    
+    title(paste("VARMA(",varma.fit$ARorder,",",varma.fit$MAorder,") predictions on Page ",page.index,"/",ncol(varma.train)-1,sep=""))
   
     observed.data <- varma.fit$data[2:nrow(varma.fit$data),page.index]
     residuals <- varma.fit$residuals[,page.index]
@@ -379,7 +458,55 @@ if(output.plots){
 }
 ```
 
-# ARIMA
+<table>
+<tr>
+  <td>
+    <a href="./img/VARMAplots/varma1.png" target="_blank"></td><td><img src="./img/VARMAplots/varma1.png" /></a>
+  </td>
+  <td>
+    <a href="./img/VARMAplots/varma3.png" target="_blank"></td><td><img src="./img/VARMAplots/varma3.png" /></a>
+  </td>
+</tr>
+<tr>
+  <td>
+      <a href="./img/VARMAplots/varma7.png" target="_blank"></td><td><img src="./img/VARMAplots/varma7.png" /></a>
+    </td>
+    <td>
+      <a href="./img/VARMAplots/varma10.png" target="_blank"></td><td><img src="./img/VARMAplots/varma10.png" /></a>
+  </td>
+</tr>
+</table>
+
+<a href="./pages/varma-plots.html">Click here for more prediction plots.</a>
+
+## Comparing ARMA and VARMA
+
+```{r printSSETable, echo = FALSE}
+p <- 9
+q <- 7
+
+time.series <- list()
+train.data <- list()
+test.data <- list()
+
+arma.SSE <- list()
+
+for (i in 1:length(unique.pages)) {
+  time.series[[i]] <- web.traffic.data[which(web.traffic.data$Page == unique.pages[[i]]),"Pageviews"]
+  test.data[[i]] <- time.series[[i]][(end.train.data+1):length(time.series[[i]])]
+  arma.SSE[[i]] <- (test.data[[i]] - arma.preds[[i]][[14*p + q + 1]]$pred)**2 %>% sum()
+}
+
+varma.SSE <- list()
+for (i in 1:length(unique.pages)) {
+  varma.SSE[[i]] <- (varma.pred$pred[,i] - test.data[[i]]) ** 2 %>% sum()
+}
+
+arma.better.than.varma <- (arma.SSE %>% unlist()) > (varma.SSE %>% unlist())
+arma.better.than.varma
+```
+
+## ARIMA
 
 ```{r arima, include=FALSE}
 homepage.data <- web.traffic.data[which(web.traffic.data$Page=="www.usfca.edu/"),]
@@ -421,11 +548,23 @@ tryCatch({
 ```{r plotARIMApredictions, include=FALSE}
 homepage.predictions <- predict(optimal.model,newdata=homepage.test,n.ahead=14)
 
+lower.bounds <- homepage.predictions$pred - homepage.predictions$se
+upper.bounds <- homepage.predictions$pred + homepage.predictions$se
+
+ylim.lb <- c(homepage.predictions$pred,lower.bounds) %>% min()
+ylim.ub <- c(homepage.predictions$pred,upper.bounds) %>% max()
+
+days <- 1:length(homepage.predictions$pred)
+pageviews <- homepage.test
+
 setwd("./img")
 png("homePagePredictions.png")
-plot(1:length(homepage.predictions$pred),homepage.test)
+plot(days,pageviews,ylim=c(ylim.lb,ylim.ub))
 lines(1:length(homepage.predictions$pred),homepage.test)
-lines(1:length(homepage.predictions$pred),homepage.predictions$pred,col="red")
+lines(1:length(homepage.predictions$pred),homepage.predictions$pred,col="red",lwd=3)
+lines(1:length(homepage.predictions$pred),lower.bounds,col="red")
+lines(1:length(homepage.predictions$pred),upper.bounds,col="red")
+
 
 p <- optimal.model$model$phi %>% length()
 q <- optimal.model$model$theta %>% length()
@@ -434,10 +573,17 @@ title(paste("ARIMA(",p,",",d,",",q,") predictions of www.usfca.edu/",sep=""))
 dev.off()
 ```
 
+Below are ARIMA predictions for www.usfca.edu/
+
+<div style="text-align: center;"><a href="./img/homePagePredictions.png" target="_blank"><img src="./img/homePagePredictions.png" /></a></div>
+
+
+## SARIMA
+
 ```{r fitSARIMA, include=FALSE}
 tryCatch({
   setwd("./rds")
-  readRDS("monthlySarimaFit.rds")
+  monthly.sarima.fit <- readRDS("monthlySarimaFit.rds")
 },error=function(e){
   monthly.sarima.fit <- arima(homepage.train,seasonal=list(order=c(7,1,7),period=28))
   setwd("./rds")
@@ -445,11 +591,67 @@ tryCatch({
 })
 ```
 
+```{r plotSARIMApredictions, include=FALSE}
+sarima.predictions <- predict(monthly.sarima.fit,newdata=homepage.test,n.ahead=14)
+
+lower.bound <- sarima.predictions$pred - sarima.predictions$se
+upper.bound <- sarima.predictions$pred + sarima.predictions$se
+
+ylim.ub <- c(upper.bound,sarima.predictions$pred) %>% max()
+ylim.lb <- c(lower.bound,sarima.predictions$pred) %>% min()
+
+days <- 1:length(sarima.predictions$pred)
+pageviews <- homepage.test
+
+setwd("./img")
+png("SARIMAPredictions.png")
+plot(days,pageviews,ylim=c(ylim.lb,ylim.ub))
+lines(1:length(sarima.predictions$pred),homepage.test)
+lines(1:length(sarima.predictions$pred),sarima.predictions$pred,col="red",lwd=3)
+lines(1:length(sarima.predictions$pred),lower.bound,col="red")
+lines(1:length(sarima.predictions$pred),upper.bound,col="red")
+
+title(paste("SARIMA(7,1,7,period = 28) predictions of www.usfca.edu/",sep=""))
+dev.off()
+```
+
+Below are ARIMA predictions for www.usfca.edu/
+
+<div style="text-align: center;"><a href="./img/SARIMAPredictions.png" target="_blank"><img src="./img/SARIMAPredictions.png" /></a></div>
+
+
+## Comparing ARIMA and SARIMA
+
+```{r printSSETableHomepage, include = FALSE}
+
+arima.errors <- homepage.predictions$pred - homepage.test
+arima.SSE <- (arima.errors)**2 %>% sum()
+sarima.errors <- sarima.predictions$pred - homepage.test
+sarima.SSE <- (sarima.errors) ** 2 %>% sum()
+
+days <- 1:length(homepage.test)
+pageviews <- homepage.test
+
+setwd("./img/")
+png("compareARIMAandSARIMA.png")
+plot(days,pageviews)
+lines(1:length(homepage.test),homepage.test)
+lines(1:length(homepage.test),homepage.predictions$pred,col="blue")
+lines(1:length(homepage.test),sarima.predictions$pred,col="green")
+
+title("VARIMA (blue) vs. SARIMA (green)")
+dev.off()
+
+sarima.better.than.arima <- sarima.SSE < arima.SSE
+sarima.better.than.arima
+```
+
+The 28-day period SARIMA performs significantly better than ARIMA.
+
+<div style="text-align: center;"><a href="./img/compareARIMAandSARIMA.png" target="_blank"><img src="./img/compareARIMAandSARIMA.png" /></a></div>
+
 ```{r finishedSuccessfully, include=FALSE}
 beep(3)
 ```
-
-TODO
-Document performance of VARMA
-Fit and document performance of ARIMA on USF's homepage
-  Make ARIMA updatable
+  
+# Conclusion

@@ -7,6 +7,8 @@ set log_folder="C:\Users\Hume Dickie\Desktop\Github\Senior-Project\logs"
 cd src
 
 
+
+::As of Jan 28, there is no updateData.R file in this project. However, data updates and webpage rendering should maybe be split up in the future, so I'm leaving this here.
 %R_Script% updateData.R
 ::IF UPDATE FAILS
 IF NOT "0" == "%ERRORLEVEL%" (
