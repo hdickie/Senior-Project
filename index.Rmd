@@ -173,6 +173,39 @@ tryCatch({
 })
 ```
 
+```{r aFewManualARMAs, include = FALSE}
+p <- 9
+q <- 7
+
+i <- 8
+
+time.series <- web.traffic.data[which(web.traffic.data$Page == unique.pages[[i]]),"Pageviews"]
+train <- time.series[1:end.train.data]
+test <- time.series[(end.train.data+1):length(time.series)]
+
+fit.armas.grid.search[[i]][[14*p + q + 1]] <- arima(train,order=c(p,0,q),method="ML")
+
+#
+
+i <- 9
+
+time.series <- web.traffic.data[which(web.traffic.data$Page == unique.pages[[i]]),"Pageviews"]
+train <- time.series[1:end.train.data]
+test <- time.series[(end.train.data+1):length(time.series)]
+
+fit.armas.grid.search[[i]][[14*p + q + 1]] <- arima(train,order=c(p,0,q),method="ML")
+
+#
+
+i <- 10
+
+time.series <- web.traffic.data[which(web.traffic.data$Page == unique.pages[[i]]),"Pageviews"]
+train <- time.series[1:end.train.data]
+test <- time.series[(end.train.data+1):length(time.series)]
+
+fit.armas.grid.search[[i]][[14*p + q + 1]] <- arima(train,order=c(p,0,q),method="CSS")
+```
+
 ```{r ARMApredictions, include=FALSE}
 time.series <- list()
 train.data <- list()
@@ -377,6 +410,9 @@ tryCatch({
   
 })
 vector.form.data <-cbind(vector.form.data,unique.dates) %>% as.data.frame()
+
+vector.form.data <- apply(vector.form.data[,1:10],2,as.character)
+vector.form.data <- apply(vector.form.data,2,as.numeric)
 ```
 
 ## VARMA
@@ -385,14 +421,15 @@ The VARMA model has many more parameters than ARMA. Accordingly, it requires man
 
 ```{r fitvarma, include=FALSE}
 varma.train <- vector.form.data[1:end.train.data,]
-varma.test <- vector.form.data[(end.train.data):nrow(vector.form.data),]
+varma.test <- vector.form.data[(end.train.data+1):nrow(vector.form.data),]
+varma.test <- apply(varma.test,2,as.character)
+varma.test <- apply(varma.test,2,as.numeric)
 
 tryCatch({
   setwd("./rds")
   varma.fit <- readRDS("varmaFit.rds")
 },error=function(e){
   varma.fit <- VARMA(varma.train,p=1,q=1)
-  setwd("./rds")
   saveRDS(varma.fit,"varmaFit.rds")
 })
 beep(1)
@@ -481,7 +518,7 @@ if(output.plots){
 
 ## Comparing ARMA and VARMA
 
-```{r printSSETable, echo = FALSE}
+```{r printSSETable, include = FALSE}
 p <- 9
 q <- 7
 
@@ -502,9 +539,28 @@ for (i in 1:length(unique.pages)) {
   varma.SSE[[i]] <- (varma.pred$pred[,i] - test.data[[i]]) ** 2 %>% sum()
 }
 
-arma.better.than.varma <- (arma.SSE %>% unlist()) > (varma.SSE %>% unlist())
+arma.better.than.varma <- (arma.SSE %>% unlist()) < (varma.SSE %>% unlist())
 arma.better.than.varma
+
+#VARMA was better than ARMA on predicting two weeks out for page 5 only. This is likely a fluke.
+
+single.day.test <- c(test.data[[1]][[1]],test.data[[2]][[1]],test.data[[3]][[1]],test.data[[4]][[1]],test.data[[5]][[1]],test.data[[6]][[1]],test.data[[7]][[1]],test.data[[8]][[1]],test.data[[9]][[1]],test.data[[10]][[1]])
+
+single.day.pred.arma <- c(arma.preds[[1]][[14*p + q + 1]]$pred[[1]],arma.preds[[2]][[14*p + q + 1]]$pred[[1]],arma.preds[[3]][[14*p + q + 1]]$pred[[1]],arma.preds[[4]][[14*p + q + 1]]$pred[[1]],arma.preds[[5]][[14*p + q + 1]]$pred[[1]],arma.preds[[6]][[14*p + q + 1]]$pred[[1]],arma.preds[[7]][[14*p + q + 1]]$pred[[1]],arma.preds[[8]][[14*p + q + 1]]$pred[[1]],arma.preds[[9]][[14*p + q + 1]]$pred[[1]],arma.preds[[10]][[14*p + q + 1]]$pred[[1]])
+
+single.day.pred.varma <- varma.pred$pred[1,]
+
+arma.resid <- single.day.pred.arma - single.day.test
+varma.resid <- single.day.pred.varma - single.day.test
+
+arma.single.day.SSE <- (arma.resid ** 2) %>% sum()
+varma.single.day.SSE <- (varma.resid ** 2) %>% sum()
+
+arma.better.than.varma.single.day <- arma.single.day.SSE < varma.single.day.SSE
+arma.better.than.varma.single.day
 ```
+
+ARMA outperformed VARMA on 9/10 pages for two-week predictions. The same was true for 1-day predictions. It is tempting to answer our motivating question with a <b>no</b>, but VARMA has ARMA nested inside of it, so in principal VARMA has at least equal, and very likely a greater predictive capability. My main takeaway from these results is not the superiority of ARMA, but the difficulty in fitting and obtaining enough data for VARMA.
 
 ## ARIMA
 
@@ -539,7 +595,6 @@ tryCatch({
     beep(2)
   }
   beep(8)
-  setwd("./rds")
   saveRDS(optimal.model,"homepageArimaFit.rds")
 })
 
@@ -551,26 +606,29 @@ homepage.predictions <- predict(optimal.model,newdata=homepage.test,n.ahead=14)
 lower.bounds <- homepage.predictions$pred - homepage.predictions$se
 upper.bounds <- homepage.predictions$pred + homepage.predictions$se
 
-ylim.lb <- c(homepage.predictions$pred,lower.bounds) %>% min()
-ylim.ub <- c(homepage.predictions$pred,upper.bounds) %>% max()
+ylim.lb <- c(homepage.test,lower.bounds) %>% min()
+ylim.ub <- c(homepage.test,upper.bounds) %>% max()
 
 days <- 1:length(homepage.predictions$pred)
 pageviews <- homepage.test
 
-setwd("./img")
-png("homePagePredictions.png")
-plot(days,pageviews,ylim=c(ylim.lb,ylim.ub))
-lines(1:length(homepage.predictions$pred),homepage.test)
-lines(1:length(homepage.predictions$pred),homepage.predictions$pred,col="red",lwd=3)
-lines(1:length(homepage.predictions$pred),lower.bounds,col="red")
-lines(1:length(homepage.predictions$pred),upper.bounds,col="red")
+if(output.plots){
+  setwd("./img")
+  png("homePagePredictions.png")
+  plot(days,pageviews,ylim=c(ylim.lb,ylim.ub))
+  lines(1:length(homepage.predictions$pred),homepage.test)
+  lines(1:length(homepage.predictions$pred),homepage.predictions$pred,col="red",lwd=3)
+  lines(1:length(homepage.predictions$pred),lower.bounds,col="red")
+  lines(1:length(homepage.predictions$pred),upper.bounds,col="red")
+  
+  
+  p <- optimal.model$model$phi %>% length()
+  q <- optimal.model$model$theta %>% length()
+  d <- optimal.model$model$Delta
+  title(paste("ARIMA(",p,",",d,",",q,") predictions of www.usfca.edu/",sep=""))
+  dev.off()
+}
 
-
-p <- optimal.model$model$phi %>% length()
-q <- optimal.model$model$theta %>% length()
-d <- optimal.model$model$Delta
-title(paste("ARIMA(",p,",",d,",",q,") predictions of www.usfca.edu/",sep=""))
-dev.off()
 ```
 
 Below are ARIMA predictions for www.usfca.edu/
@@ -586,7 +644,6 @@ tryCatch({
   monthly.sarima.fit <- readRDS("monthlySarimaFit.rds")
 },error=function(e){
   monthly.sarima.fit <- arima(homepage.train,seasonal=list(order=c(7,1,7),period=28))
-  setwd("./rds")
   saveRDS(monthly.sarima.fit,"monthlySarimaFit.rds")
 })
 ```
@@ -654,4 +711,10 @@ The 28-day period SARIMA performs significantly better than ARIMA.
 beep(3)
 ```
   
-# Conclusion
+# Final Notes
+
+ARMA outperformed VARMA on both 2-week and 1-day predictions. VARMA requires much more data to get a fit.
+
+SARIMA outperformed ARIMA with a 4-week period, which is not surprising.
+
+I originally intended to do a year-over-year model for SARIMA, but the maximum period arima can support is 350. <a href="https://robjhyndman.com/hyndsight/longseasonality/">This article</a> suggested using a Fourier series approach to overcome this limitation.
